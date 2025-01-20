@@ -12,10 +12,10 @@ WORKDIR /usr/src/app
 COPY app.cpp .
 
 # Compile the C++ application into an executable named 'app'
-RUN g++ -o app app.cpp -lsqlite3
+RUN g++ -o app.exe app.cpp -lsqlite3
 
 # Expose port 8080 for the application
 EXPOSE 8080
 
 # Run the compiled application (app)
-CMD ["./app"]
+CMD ["./app.exe"]
