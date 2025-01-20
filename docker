@@ -1,0 +1,21 @@
+# Use an official GCC base image to compile C++ code
+FROM gcc:latest
+
+# Install SQLite3 development libraries (if needed)
+RUN apt-get update && \
+    apt-get install -y sqlite3 libsqlite3-dev
+
+# Set the working directory inside the container
+WORKDIR /usr/src/app
+
+# Copy the C++ source code (app.cpp) into the container
+COPY app.cpp .
+
+# Compile the C++ application into an executable named 'app'
+RUN g++ -o app app.cpp -lsqlite3
+
+# Expose port 8080 for the application
+EXPOSE 8080
+
+# Run the compiled application (app)
+CMD ["./app"]
