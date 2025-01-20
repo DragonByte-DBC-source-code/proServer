@@ -51,7 +51,7 @@ std::string handleRequest(const std::string &request)
 {
     std::string response;
 
-    if (request.find("GET /your-mom ") == 0)
+    if (request.find("GET /your-mom ") == 0 || request.find("GET / ") == 0)
     {
         response = "HTTP/1.1 200 OK\r\nContent-Length: 16\r\n\r\nYahel is GAY";
     }
