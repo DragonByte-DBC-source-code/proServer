@@ -51,27 +51,24 @@ std::string handleRequest(const std::string &request)
 {
     std::string response;
 
-    if (request.find("GET /your-mom ") == 0 || request.find("GET / ") == 0)
+    if (request.find("GET / ") == 0)
     {
-        response = "HTTP/1.1 200 OK\r\nContent-Length: 16\r\n\r\nYahel is GAY";
+        response = "HTTP/1.1 200 OK\r\nContent-Length: 12\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nYahel is GAY";
     }
-    else if (request.find("POST /add ") == 0)
+    else if (request.find("POST /add") == 0)
     {
-        // Extract ID from request body
         size_t body_start = request.find("\r\n\r\n") + 4;
         std::string body = request.substr(body_start);
         int id = std::stoi(body);
 
-        // Insert ID into SQLite database
         std::ostringstream sql;
         sql << "INSERT INTO ids (id) VALUES (" << id << ")";
         executeSQL(sql.str());
 
-        response = "HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\nID added successfully";
+        response = "HTTP/1.1 200 OK\r\nContent-Length: 17\r\nConnection: close\r\n\r\nID added successfully";
     }
-    else if (request.find("GET /ids ") == 0)
+    else if (request.find("GET /ids") == 0)
     {
-        // Return IDs from database as JSON
         std::vector<int> ids = fetchIDs();
         std::ostringstream json;
         json << "[";
@@ -85,11 +82,11 @@ std::string handleRequest(const std::string &request)
 
         std::string jsonStr = json.str();
         response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
-                   std::to_string(jsonStr.size()) + "\r\n\r\n" + jsonStr;
+                   std::to_string(jsonStr.size()) + "\r\nConnection: close\r\n\r\n" + jsonStr;
     }
     else
     {
-        response = "HTTP/1.1 404 Not Found\r\nContent-Length: 13\r\n\r\n404 Not Found";
+        response = "HTTP/1.1 404 Not Found\r\nContent-Length: 13\r\nConnection: close\r\n\r\n404 Not Found";
     }
 
     return response;
