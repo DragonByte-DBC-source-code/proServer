@@ -5,10 +5,15 @@
 #include <unistd.h>
 #include <vector>
 #include <sstream>
+#include <thread>
 #include <sqlite3.h> // Include SQLite library
 
 // SQLite database pointer
 sqlite3 *db;
+
+// Named constants
+const int PORT = 8080;
+const int BUFFER_SIZE = 4096;
 
 // Function to execute SQL commands
 int executeSQL(const std::string &sql)
@@ -92,6 +97,21 @@ std::string handleRequest(const std::string &request)
     return response;
 }
 
+// Function to handle each client in a separate thread
+void handleClient(int client_fd)
+{
+    char buffer[BUFFER_SIZE];
+    int bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
+    if (bytes_read > 0)
+    {
+        buffer[bytes_read] = '\0';
+        std::string request(buffer);
+        std::string response = handleRequest(request);
+        send(client_fd, response.c_str(), response.size(), 0);
+    }
+    close(client_fd);
+}
+
 int main()
 {
     // Open SQLite database
@@ -103,7 +123,7 @@ int main()
     }
 
     // Create the 'ids' table if it doesn't exist
-    const char *create_table_sql = "CREATE TABLE IF NOT EXISTS ids (id INTEGER PRIMARY KEY);";
+    const char *create_table_sql = "CREATE TABLE IF NOT EXISTS ids (id TEXT PRIMARY KEY);";
     executeSQL(create_table_sql);
 
     // Create socket
@@ -118,7 +138,7 @@ int main()
     // Set up address structure
     sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(8080);
+    server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
     // Bind socket to address
@@ -131,7 +151,7 @@ int main()
     }
 
     // Start listening for connections
-    if (listen(server_fd, 5) == -1)
+    if (listen(server_fd, SOMAXCONN) == -1)
     {
         std::cerr << "Listen failed\n";
         close(server_fd);
@@ -139,7 +159,7 @@ int main()
         return 1;
     }
 
-    std::cout << "Server is running on port 8080\n";
+    std::cout << "Server is running on port " << PORT << "\n";
 
     while (true)
     {
@@ -151,23 +171,9 @@ int main()
             continue;
         }
 
-        // Read request
-        char buffer[4096];
-        int bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
-        if (bytes_read <= 0)
-        {
-            close(client_fd);
-            continue;
-        }
-        buffer[bytes_read] = '\0';
-
-        // Process request
-        std::string request(buffer);
-        std::string response = handleRequest(request);
-
-        // Send response
-        send(client_fd, response.c_str(), response.size(), 0);
-        close(client_fd);
+        // Handle the client in a separate thread
+        std::thread clientThread(handleClient, client_fd);
+        clientThread.detach(); // Detach the thread to allow it to run independently
     }
 
     close(server_fd);
