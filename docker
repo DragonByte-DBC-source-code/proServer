@@ -1,21 +1,27 @@
-# Use an official GCC base image to compile C++ code
-FROM gcc:latest
+# Use an official Ubuntu image as the base
+FROM ubuntu:20.04
 
-# Install SQLite3 development libraries (if needed)
-RUN apt-get update && \
-    apt-get install -y sqlite3 libsqlite3-dev
+# Set environment variables to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Set the working directory inside the container
-WORKDIR /usr/src/app
+# Install necessary tools, libraries, and dependencies
+RUN apt-get update && apt-get install -y \
+    g++ \
+    sqlite3 \
+    libsqlite3-dev \
+    && apt-get clean
 
-# Copy the C++ source code (app.cpp) into the container
+# Set the working directory
+WORKDIR /app
+
+# Copy your C++ source code into the container
 COPY app.cpp .
 
-# Compile the C++ application into an executable named 'app'
-RUN g++ -o app.exe app.cpp -lsqlite3
+# Add a script to clean and run the application
+RUN echo '#!/bin/bash\n' \
+    'rm -f app.exe ids.db\n' \
+    'g++ app.cpp -o app.exe -lsqlite3 -pthread\n' \
+    './app.exe' > run.sh && chmod +x run.sh
 
-# Expose port 8080 for the application
-EXPOSE 8080
-
-# Run the compiled application (app)
-CMD ["./app.exe"]
+# Command to execute the script
+CMD ["bash", "run.sh"]
