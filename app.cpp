@@ -6,7 +6,7 @@
 #include <vector>
 #include <sstream>
 #include <thread>
-#include <sqlite3.h> // Include SQLite library
+#include <sqlite3.h>
 
 // SQLite database pointer
 sqlite3 *db;
@@ -15,23 +15,10 @@ sqlite3 *db;
 const int PORT = 8080;
 const int BUFFER_SIZE = 4096;
 
-// Function to execute SQL commands
-int executeSQL(const std::string &sql)
-{
-    char *errMsg = nullptr;
-    int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
-    if (rc != SQLITE_OK)
-    {
-        std::cerr << "SQL error: " << errMsg << std::endl;
-        sqlite3_free(errMsg);
-    }
-    return rc;
-}
-
 // Function to fetch all IDs from the database
-std::vector<string> fetchIDs()
+std::vector<std::string> fetchIDs()
 {
-    std::vector<string> ids;
+    std::vector<std::string> ids;
     const char *query = "SELECT id FROM ids";
     sqlite3_stmt *stmt;
     int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
@@ -44,7 +31,7 @@ std::vector<string> fetchIDs()
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        ids.push_back(sqlite3_column_int(stmt, 0));
+        ids.push_back(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
     }
 
     sqlite3_finalize(stmt);
@@ -63,23 +50,29 @@ std::string handleRequest(const std::string &request)
     else if (request.find("POST /add") == 0)
     {
         size_t body_start = request.find("\r\n\r\n") + 4;
-        std::string body = request.substr(body_start);
-        int id = std::stoi(body);
+        std::string id = request.substr(body_start);
 
-        std::ostringstream sql;
-        sql << "INSERT INTO ids (id) VALUES (" << id << ")";
-        executeSQL(sql.str());
+        sqlite3_stmt *stmt;
+        const char *sql = "INSERT INTO ids (id) VALUES (?);";
+        int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
 
+        if (rc == SQLITE_OK)
+        {
+            sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_STATIC);
+            rc = sqlite3_step(stmt);
+        }
+
+        sqlite3_finalize(stmt);
         response = "HTTP/1.1 200 OK\r\nContent-Length: 17\r\nConnection: close\r\n\r\nID added successfully";
     }
     else if (request.find("GET /ids") == 0)
     {
-        std::vector<string> ids = fetchIDs();
+        std::vector<std::string> ids = fetchIDs();
         std::ostringstream json;
         json << "[";
         for (size_t i = 0; i < ids.size(); ++i)
         {
-            json << ids[i];
+            json << "\"" << ids[i] << "\"";
             if (i < ids.size() - 1)
                 json << ",";
         }
@@ -124,7 +117,7 @@ int main()
 
     // Create the 'ids' table if it doesn't exist
     const char *create_table_sql = "CREATE TABLE IF NOT EXISTS ids (id TEXT PRIMARY KEY);";
-    executeSQL(create_table_sql);
+    sqlite3_exec(db, create_table_sql, nullptr, nullptr, nullptr);
 
     // Create socket
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
