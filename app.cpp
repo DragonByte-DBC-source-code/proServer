@@ -7,6 +7,7 @@
 #include <sstream>
 #include <thread>
 #include <sqlite3.h>
+#include <algorithm>
 
 // SQLite database pointer
 sqlite3 *db;
@@ -31,7 +32,8 @@ std::vector<std::string> fetchIDs()
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        ids.push_back(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+        int id = sqlite3_column_int(stmt, 0);
+        ids.push_back(std::to_string(id));
     }
 
     sqlite3_finalize(stmt);
@@ -50,20 +52,32 @@ std::string handleRequest(const std::string &request)
     else if (request.find("POST /add") == 0)
     {
         size_t body_start = request.find("\r\n\r\n") + 4;
-        std::string id = request.substr(body_start);
+        std::string body = request.substr(body_start);
 
-        sqlite3_stmt *stmt;
-        const char *sql = "INSERT INTO ids (id) VALUES (?);";
-        int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
-
-        if (rc == SQLITE_OK)
+        size_t id_pos = body.find(":");
+        size_t end_pos = body.find("}");
+        if (id_pos == std::string::npos || end_pos == std::string::npos)
         {
-            sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_STATIC);
-            rc = sqlite3_step(stmt);
+            response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 22\r\nConnection: close\r\n\r\nInvalid JSON format";
         }
+        else
+        {
+            std::string id = body.substr(id_pos + 1, end_pos - id_pos - 1);
+            id.erase(std::remove_if(id.begin(), id.end(), ::isspace), id.end());
 
-        sqlite3_finalize(stmt);
-        response = "HTTP/1.1 200 OK\r\nContent-Length: 17\r\nConnection: close\r\n\r\nID added successfully";
+            sqlite3_stmt *stmt;
+            const char *sql = "INSERT INTO ids (id) VALUES (?);";
+            int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
+
+            if (rc == SQLITE_OK)
+            {
+                sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_STATIC);
+                rc = sqlite3_step(stmt);
+            }
+
+            sqlite3_finalize(stmt);
+            response = "HTTP/1.1 200 OK\r\nContent-Length: 17\r\nConnection: close\r\n\r\nID added successfully";
+        }
     }
     else if (request.find("GET /ids") == 0)
     {
@@ -116,7 +130,7 @@ int main()
     }
 
     // Create the 'ids' table if it doesn't exist
-    const char *create_table_sql = "CREATE TABLE IF NOT EXISTS ids (id TEXT PRIMARY KEY);";
+    const char *create_table_sql = "CREATE TABLE IF NOT EXISTS ids (id INTEGER PRIMARY KEY);";
     sqlite3_exec(db, create_table_sql, nullptr, nullptr, nullptr);
 
     // Create socket
@@ -166,7 +180,7 @@ int main()
 
         // Handle the client in a separate thread
         std::thread clientThread(handleClient, client_fd);
-        clientThread.detach(); // Detach the thread to allow it to run independently
+        clientThread.detach();
     }
 
     close(server_fd);
