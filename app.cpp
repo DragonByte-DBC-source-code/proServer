@@ -29,9 +29,9 @@ int executeSQL(const std::string &sql)
 }
 
 // Function to fetch all IDs from the database
-std::vector<int> fetchIDs()
+std::vector<string> fetchIDs()
 {
-    std::vector<int> ids;
+    std::vector<string> ids;
     const char *query = "SELECT id FROM ids";
     sqlite3_stmt *stmt;
     int rc = sqlite3_prepare_v2(db, query, -1, &stmt, nullptr);
@@ -74,7 +74,7 @@ std::string handleRequest(const std::string &request)
     }
     else if (request.find("GET /ids") == 0)
     {
-        std::vector<int> ids = fetchIDs();
+        std::vector<string> ids = fetchIDs();
         std::ostringstream json;
         json << "[";
         for (size_t i = 0; i < ids.size(); ++i)
