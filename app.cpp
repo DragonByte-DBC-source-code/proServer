@@ -32,8 +32,8 @@ std::vector<std::string> fetchIDs()
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        int id = sqlite3_column_int(stmt, 0);
-        ids.push_back(std::to_string(id));
+        const char *id = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+        ids.push_back(std::string(id));
     }
 
     sqlite3_finalize(stmt);
@@ -84,13 +84,16 @@ std::string handleRequest(const std::string &request)
         std::vector<std::string> ids = fetchIDs();
         std::ostringstream json;
         json << "[";
+
+        // Add each ID to the JSON array
         for (size_t i = 0; i < ids.size(); ++i)
         {
-            json << "\"" << ids[i] << "\"";
+            json << ids[i];
             if (i < ids.size() - 1)
-                json << ",";
+                json << ","; // Only add commas between elements
         }
-        json << "]";
+
+        json << "]"; // Close the JSON array
 
         std::string jsonStr = json.str();
         response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
@@ -130,7 +133,7 @@ int main()
     }
 
     // Create the 'ids' table if it doesn't exist
-    const char *create_table_sql = "CREATE TABLE IF NOT EXISTS ids (id INTEGER PRIMARY KEY);";
+    const char *create_table_sql = "CREATE TABLE IF NOT EXISTS ids (id TEXT PRIMARY KEY);";
     sqlite3_exec(db, create_table_sql, nullptr, nullptr, nullptr);
 
     // Create socket
