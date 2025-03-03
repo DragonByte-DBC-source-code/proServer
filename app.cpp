@@ -44,10 +44,18 @@ std::vector<std::string> fetchIDs()
 std::string handleRequest(const std::string &request)
 {
     std::string response;
+    std::string corsHeaders = "Access-Control-Allow-Origin: *\r\n"
+                              "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+                              "Access-Control-Allow-Headers: Content-Type\r\n";
 
-    if (request.find("GET / ") == 0)
+    if (request.find("OPTIONS ") == 0)
     {
-        response = "HTTP/1.1 200 OK\r\nContent-Length: 12\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nYahel is GAY";
+        response = "HTTP/1.1 204 No Content\r\n" + corsHeaders + "Content-Length: 0\r\nConnection: close\r\n\r\n";
+    }
+    else if (request.find("GET / ") == 0)
+    {
+        response = "HTTP/1.1 200 OK\r\n" + corsHeaders +
+                   "Content-Length: 12\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nYahel is GAY";
     }
     else if (request.find("POST /add") == 0)
     {
@@ -58,7 +66,8 @@ std::string handleRequest(const std::string &request)
         size_t end_pos = body.find("}");
         if (id_pos == std::string::npos || end_pos == std::string::npos)
         {
-            response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 22\r\nConnection: close\r\n\r\nInvalid JSON format";
+            response = "HTTP/1.1 400 Bad Request\r\n" + corsHeaders +
+                       "Content-Length: 22\r\nConnection: close\r\n\r\nInvalid JSON format";
         }
         else
         {
@@ -76,7 +85,8 @@ std::string handleRequest(const std::string &request)
             }
 
             sqlite3_finalize(stmt);
-            response = "HTTP/1.1 200 OK\r\nContent-Length: 17\r\nConnection: close\r\n\r\nID added successfully";
+            response = "HTTP/1.1 200 OK\r\n" + corsHeaders +
+                       "Content-Length: 17\r\nConnection: close\r\n\r\nID added successfully";
         }
     }
     else if (request.find("GET /ids") == 0)
@@ -85,23 +95,24 @@ std::string handleRequest(const std::string &request)
         std::ostringstream json;
         json << "[";
 
-        // Add each ID to the JSON array
         for (size_t i = 0; i < ids.size(); ++i)
         {
             json << ids[i];
             if (i < ids.size() - 1)
-                json << ","; // Only add commas between elements
+                json << ",";
         }
 
-        json << "]"; // Close the JSON array
+        json << "]";
 
         std::string jsonStr = json.str();
-        response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
-                   std::to_string(jsonStr.size()) + "\r\nConnection: close\r\n\r\n" + jsonStr;
+        response = "HTTP/1.1 200 OK\r\n" + corsHeaders +
+                   "Content-Type: application/json\r\nContent-Length: " + std::to_string(jsonStr.size()) +
+                   "\r\nConnection: close\r\n\r\n" + jsonStr;
     }
     else
     {
-        response = "HTTP/1.1 404 Not Found\r\nContent-Length: 13\r\nConnection: close\r\n\r\n404 Not Found";
+        response = "HTTP/1.1 404 Not Found\r\n" + corsHeaders +
+                   "Content-Length: 13\r\nConnection: close\r\n\r\n404 Not Found";
     }
 
     return response;
